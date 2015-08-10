@@ -2,10 +2,12 @@ There are too many programs to map joystick to keyboard and nothing to map keybo
 This small program creates virtual joystick/gamepad (device: Microsoft xbox 360) and map keyboard keys to joystick events.
 Excellently works in Ubuntu. You can change mapping modifying program code.
 
-Usage:
-------
+Usage
+-----------
 
+```bash
     sudo python3 main.py /dev/input/event4
+```bash
 
 this will create new virtual device:
 Input: device /dev/input/event4, name "AT Translated Set 2 keyboard", phys "isa0060/serio0/input0"
