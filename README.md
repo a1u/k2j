@@ -1,4 +1,4 @@
-k2j
+k2j - keyboard to joystick mapper
 =========================
 There are too many programs to map joystick to keyboard and nothing to map keyboard to joystick.
 This small program creates virtual joystick/gamepad (device: Microsoft xbox 360) and map keyboard keys to joystick events.
