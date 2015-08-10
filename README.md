@@ -6,7 +6,7 @@ Usage
 -----------
 
 ```code
-    sudo python3 main.py /dev/input/event4
+sudo python3 main.py /dev/input/event4
 ```code
 
 this will create new virtual device:
