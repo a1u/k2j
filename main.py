@@ -11,20 +11,23 @@ import pygame
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
-parser.add_argument("-l", "--list", help="list devices", action="store_true")
-parser.add_argument("indev", help="Input keyboard device. E.g. /dev/input/eventX", type=str)
+parser.add_argument("input", help="Input keyboard device. E.g. /dev/input/eventX", type=str)
 # parser.add_argument("outdev", help="Output joystick device. E.g. /dev/input/eventY", type=str)
-args = parser.parse_args()
-
-if args.verbose:
-    print("verbosity turned on")
-
-if args.list:
+try:
+    parser.parse_args()
+except:
     devices = [InputDevice(fn) for fn in list_devices()]
     for dev in devices:
         print(dev.fn, dev.name, dev.phys, dev.info)
 
-kbd = InputDevice(args.indev)
+    exit()
+
+args = parser.parse_args()
+
+if args.verbose:
+    print("Verbosity turned on")
+
+kbd = InputDevice(args.input)
 # jst = InputDevice("/dev/input/event14")
 # print(jst.capabilities(verbose=True))
 
@@ -76,7 +79,9 @@ for i in cap.keys():
 # print(capm)
 # exit()
 
-ui = UInput(cap, vendor=1118, product=654, version=272, bustype=3)
+ui = UInput(cap, name="Virtual Xbox360", vendor=1118, product=654, version=272, bustype=3)
+
+print("Output:", ui.device)
 # time.sleep(4)
 # ui.write(e.EV_ABS, e.ABS_X, 5000)
 # ui.syn()
@@ -111,7 +116,7 @@ def threaded_function():
                     ui.syn()
                     ui.write(evi, evt, 0)
                     ui.syn()
-        print(ev)
+        print(ev) if args.verbose else 1
         sleep(0.001)
 
 thread = Thread(target = threaded_function)
