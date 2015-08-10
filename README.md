@@ -5,9 +5,9 @@ Excellently works in Ubuntu. You can change mapping modifying program code.
 Usage
 -----------
 
-```bash
+```code
     sudo python3 main.py /dev/input/event4
-```bash
+```code
 
 this will create new virtual device:
 Input: device /dev/input/event4, name "AT Translated Set 2 keyboard", phys "isa0060/serio0/input0"
