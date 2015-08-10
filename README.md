@@ -25,3 +25,5 @@ You can also create virtual empty device by using prop file to compare with that
 ```code
 sudo evemu-device xbox360.prop
 ```
+
+You can also see result via jstest-gtk
