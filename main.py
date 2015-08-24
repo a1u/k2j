@@ -8,7 +8,7 @@ from time import sleep
 from collections import defaultdict
 import pygame
 
-REPEAT_INTERVAL = 0.0007
+REPEAT_INTERVAL = 0.00007
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
@@ -57,25 +57,66 @@ capability = {
     ]
 }
 
+S_DEC = 0
+S_INC = 1
+S_FIXED = 2
+S_PRESS = 3
+S_DEFAULT = 4
+
+mapping = {
+    ((e.EV_KEY, e.KEY_LEFTCTRL),(e.EV_KEY, e.KEY_Q)): {(): [S_DEFAULT]},
+    ((e.EV_KEY, e.KEY_LEFT),): {(e.EV_ABS, e.ABS_X): [S_DEC]},
+    ((e.EV_KEY, e.KEY_RIGHT),): {(e.EV_ABS, e.ABS_X): [S_INC]},
+    ((e.EV_KEY, e.KEY_DOWN),): {(e.EV_ABS, e.ABS_Y): [S_DEC]},
+    ((e.EV_KEY, e.KEY_UP),): {(e.EV_ABS, e.ABS_Y): [S_INC]},
+    ((e.EV_KEY, e.KEY_A),): {(e.EV_ABS, e.ABS_Z): [S_DEC]},
+    ((e.EV_KEY, e.KEY_D),): {(e.EV_ABS, e.ABS_Z): [S_INC]},
+    ((e.EV_KEY, e.KEY_S),): {(e.EV_ABS, e.ABS_RX): [S_DEC, S_FIXED]},
+    ((e.EV_KEY, e.KEY_W),): {(e.EV_ABS, e.ABS_RX): [S_INC, S_FIXED]},
+    ((e.EV_KEY, e.KEY_Z),): {(e.EV_ABS, e.ABS_RY): [S_DEC]},
+    ((e.EV_KEY, e.KEY_Q),): {(e.EV_ABS, e.ABS_RY): [S_INC]},
+    ((e.EV_KEY, e.KEY_C),): {(e.EV_ABS, e.ABS_RZ): [S_DEC]},
+    ((e.EV_KEY, e.KEY_E),): {(e.EV_ABS, e.ABS_RZ): [S_INC]},
+    ((e.EV_KEY, e.KEY_HOME),): {(e.EV_ABS, e.ABS_HAT0X): [S_DEC]},
+    ((e.EV_KEY, e.KEY_END),): {(e.EV_ABS, e.ABS_HAT0X): [S_INC]},
+    ((e.EV_KEY, e.KEY_PAGEDOWN),): {(e.EV_ABS, e.ABS_HAT0Y): [S_DEC]},
+    ((e.EV_KEY, e.KEY_PAGEUP),): {(e.EV_ABS, e.ABS_HAT0Y): [S_INC]},
+    ((e.EV_KEY, e.KEY_1),): {(e.EV_KEY, e.BTN_A): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_2),): {(e.EV_KEY, e.BTN_B): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_3),): {(e.EV_KEY, e.BTN_NORTH): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_4),): {(e.EV_KEY, e.BTN_WEST): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_5),): {(e.EV_KEY, e.BTN_TL): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_6),): {(e.EV_KEY, e.BTN_TR): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_7),): {(e.EV_KEY, e.BTN_SELECT): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_8),): {(e.EV_KEY, e.BTN_START): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_9),): {(e.EV_KEY, e.BTN_MODE): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_0),): {(e.EV_KEY, e.BTN_THUMBL): [S_PRESS]},
+    ((e.EV_KEY, e.KEY_GRAVE),): {(e.EV_KEY, e.BTN_THUMBR): [S_PRESS]},
+}
+
+pressed = []
+
+ranges = {}
+for k in capability.keys():
+    for v in capability[k]:
+        ranges.update({(k, (v if type(v) is not tuple else v[0])): (0, 1) if type(v) is not tuple else (v[1][0], v[1][1])})
 initial = {}
 for k in capability.keys():
     for v in capability[k]:
-        initial.update({str(k) + ":" + str(v if type(v) is not tuple else v[0]): v if type(v) is not tuple else v[1]})
+        initial.update({(k, (v if type(v) is not tuple else v[0])): 0 if type(v) is not tuple else ceil(v[1][1] - (abs(v[1][0]) + abs(v[1][1]))/2)})
+accelInitial = {}
+for k in capability.keys():
+    for v in capability[k]:
+        accelInitial.update({(k, (v if type(v) is not tuple else v[0])): 0})
+accel = accelInitial.copy()
+
+current = initial.copy()
+
+fixed = {}
 
 ui = UInput(capability, name="Virtual Xbox360", vendor=1118, product=654, version=272, bustype=3)
 
 print("Output:", ui.device)
-
-def correct(a, side, limit):
-    return a + limit * side
-
-ev = {}
-def default():
-    for k, v in initial.items():
-        ev.update({k: 0 if type(v) is not tuple else ceil(v[1] - (abs(v[0]) + abs(v[1]))/2)})
-
-default()
-a = {}
 
 class EventLoop(Thread):
     _terminate = False
@@ -83,68 +124,56 @@ class EventLoop(Thread):
         self._terminate = True
     def run(self):
         while True and not self._terminate:
-            for k in a.keys():
-                # if a[k] is not 0 :
-                evi = int(k.split(":")[0])
-                evt = int(k.split(":")[1])
-                if (evi is e.EV_ABS):
-                    if (a[k] is not 0):
-                        c1 = correct(ev.get(k, 0), a[k], 1 + initial.get(k)[2])
-                        ev.update({k: initial.get(k)[0] if c1 < initial.get(k)[0] else initial.get(k)[1] if c1 > initial.get(k)[1] else c1})
-                else:
-                    ev.update({k: a[k]})
-
-                ui.write(evi, evt, ev[k])
+            for k,v in current.items():
+                ui.write(k[0], k[1], int(v))
                 ui.syn()
+            operates = []
+            operates.append(mapping.get(tuple(pressed)))
+            for i in pressed:
+                operates.append(mapping.get(tuple([tuple(i)])))
+            for operate in operates:
+                if (operate is not None):
+                    for k,v in operate.items():
+                        if S_DEFAULT in v:
+                            current.update(initial)
+                            break
+                        if S_FIXED in v: fixed.update({k: 1})
+                        strategy = (-1 if S_DEC in v else 1 if S_INC in v else 0)
+                        if (S_PRESS in v):
+                            z = 1
+                        else:
+                            accel.update({k: (accel.get(k) + 0.01)})
+                            z = strategy * accel.get(k) + current.get(k)
+                        z = ranges.get(k)[0] if z <= ranges.get(k)[0] else ranges.get(k)[1] if z >= ranges.get(k)[1] else z
+                        current.update({k: z})
 
-            print(ev) if args.verbose else 1
+            zz = []
+            for operate in operates:
+                if (operate is None): continue
+                zz.extend(operate.keys())
+
+            for k,v in current.items():
+                if (k in zz): continue
+                if (fixed.get(k, 0) == 1): continue
+                current.update({k: initial.get(k)})
+
+            print(current) if args.verbose else 1
             sleep(REPEAT_INTERVAL)
 
 thread = EventLoop()
 thread.start()
 
-pressed = {}
-released = {}
-s = {}
-
-def map(sourceCode, expectedCode, destType, destCode, value):
-    a.update({str(destType) + ':' + str(destCode): value}) if expectedCode == sourceCode else 1
-
 try:
     for event in kbd.read_loop():
-        if event.type == e.EV_KEY:
-            pressed.update({event.code: event.value}) if event.value != 0 else pressed.pop(event.code, 0)
-            released.update({event.code: event.value}) if event.value == 0 else 1
-            # if (e.KEY_LEFTCTRL in p and e.KEY_Q in p and len(p) == 2): kbd.grab()
-            # if (e.KEY_LEFTCTRL in p and e.KEY_W in p and len(p) == 2): kbd.ungrab()
-            (default()) if event.code == e.KEY_DELETE else 1
-            map(event.code, e.KEY_LEFT, e.EV_ABS, e.ABS_X, -event.value)
-            map(event.code, e.KEY_RIGHT, e.EV_ABS, e.ABS_X, event.value)
-            map(event.code, e.KEY_DOWN, e.EV_ABS, e.ABS_Y, -event.value)
-            map(event.code, e.KEY_UP, e.EV_ABS, e.ABS_Y, event.value)
-            map(event.code, e.KEY_A, e.EV_ABS, e.ABS_Z, -event.value)
-            map(event.code, e.KEY_D, e.EV_ABS, e.ABS_Z, event.value)
-            map(event.code, e.KEY_S, e.EV_ABS, e.ABS_RX, -event.value)
-            map(event.code, e.KEY_W, e.EV_ABS, e.ABS_RX, event.value)
-            map(event.code, e.KEY_Z, e.EV_ABS, e.ABS_RY, -event.value)
-            map(event.code, e.KEY_Q, e.EV_ABS, e.ABS_RY, event.value)
-            map(event.code, e.KEY_C, e.EV_ABS, e.ABS_RZ, -event.value)
-            map(event.code, e.KEY_E, e.EV_ABS, e.ABS_RZ, event.value)
-            map(event.code, e.KEY_HOME, e.EV_ABS, e.ABS_HAT0X, -event.value)
-            map(event.code, e.KEY_END, e.EV_ABS, e.ABS_HAT0X, event.value)
-            map(event.code, e.KEY_PAGEDOWN, e.EV_ABS, e.ABS_HAT0Y, -event.value)
-            map(event.code, e.KEY_PAGEUP, e.EV_ABS, e.ABS_HAT0Y, event.value)
-            map(event.code, e.KEY_1, e.EV_KEY, e.BTN_A, event.value)
-            map(event.code, e.KEY_2, e.EV_KEY, e.BTN_B, event.value)
-            map(event.code, e.KEY_3, e.EV_KEY, e.BTN_NORTH, event.value)
-            map(event.code, e.KEY_4, e.EV_KEY, e.BTN_WEST, event.value)
-            map(event.code, e.KEY_5, e.EV_KEY, e.BTN_TL, event.value)
-            map(event.code, e.KEY_6, e.EV_KEY, e.BTN_TR, event.value)
-            map(event.code, e.KEY_7, e.EV_KEY, e.BTN_SELECT, event.value)
-            map(event.code, e.KEY_8, e.EV_KEY, e.BTN_START, event.value)
-            map(event.code, e.KEY_9, e.EV_KEY, e.BTN_MODE, event.value)
-            map(event.code, e.KEY_0, e.EV_KEY, e.BTN_THUMBL, event.value)
-            map(event.code, e.KEY_GRAVE, e.EV_KEY, e.BTN_THUMBR, event.value)
+        if (event.type not in [e.EV_KEY]): continue
+
+        t = (event.type, event.code)
+        if event.value != 0:
+            pressed.append(t) if t not in pressed else 0
+        else:
+            accel = accelInitial.copy()
+            pressed.remove(t) if t in pressed else 0
+
 except KeyboardInterrupt:
     pass
 finally:
